@@ -6,12 +6,20 @@ import {SyncSelected} from "src/settings/settings";
 import {carddavGenericAdapter} from "src/sync/adapters/carddavGeneric";
 import CarddavSettings from "src/ui/settings/components/carddavSettings";
 import {oauth2} from "src/sync/auth";
+import GoogleContactsSettings from "src/ui/settings/components/googleContactSettings";
 
 const initCardavSettings = {
   addressBookUrl: "",
   username: "",
   password: "",
   authKey: ""
+};
+
+const initGoogleContactSettings = {
+  clientId: "",
+  clientSecret: "",
+  accessToken: "",
+  refreshToken: "",
 };
 
 export function SynchronizationSettings() {
@@ -23,6 +31,11 @@ export function SynchronizationSettings() {
   const [carddavSettings, setCarddavSettings] = useState({
     ...initCardavSettings,
     addressBookUrl: initSettings.CardDAV.addressBookUrl
+  });
+  const [googleContactSettings, setGoogleContactSettings] = useState({
+    ...initGoogleContactSettings,
+    clientId: initSettings.GoogleContact.clientId,
+    clientSecret: initSettings.GoogleContact.clientSecret
   });
 
   const enableSync = async () => {
@@ -78,7 +91,11 @@ export function SynchronizationSettings() {
 
   const enableGoogleContacts = async () => {
     try {
-      await oauth2.login();
+      await updateSetting('GoogleContact.clientId', googleContactSettings.clientId)
+      await updateSetting('GoogleContact.clientSecret', googleContactSettings.clientSecret)
+      const successExchanged = await oauth2.login(); // TODO: handle failure scenarios.
+      await updateSetting('GoogleContact.accessToken', successExchanged.accessToken)
+      await updateSetting('GoogleContact.refreshToken', successExchanged.refreshToken)
       console.log('aaaaaaaa');
     } catch (err: any) {
       setWarning(`failed to enable connection!`);
@@ -184,6 +201,12 @@ export function SynchronizationSettings() {
             <CarddavSettings
               carddavSettings={carddavSettings}
               setCarddavSettings={setCarddavSettings}
+            />
+          )}
+          {syncSelected === "GoogleContacts" && (
+            <GoogleContactsSettings
+              googleContactSettings={googleContactSettings}
+              setGoogleContactSettings={setGoogleContactSettings}
             />
           )}
         </>

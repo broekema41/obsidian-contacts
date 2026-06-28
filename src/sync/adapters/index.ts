@@ -1,9 +1,11 @@
 import { settings } from "src/context/sharedSettingsContext";
 import { carddavGenericAdapter } from "src/sync/adapters/carddavGeneric";
+import { googleContactsAdapter } from "src/sync/adapters/googleContactsAdapter";
 
 export const adapters = {
   None: undefined,
-  CardDAV: carddavGenericAdapter()
+  CardDAV: carddavGenericAdapter(),
+  GoogleContacts: googleContactsAdapter()
 }
 
 export function getCurrentAdapter() {

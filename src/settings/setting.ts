@@ -13,6 +13,12 @@ export const DEFAULT_SETTINGS: ContactsPluginSettings = {
     authKey: '',
     authType: 'apikey'
   },
+  GoogleContact: {
+    clientId: '',
+    clientSecret: '',
+    accessToken: '',
+    refreshToken: ''
+  },
   createFieldsKeys:  [
     "N.PREFIX",
     "N.GN",

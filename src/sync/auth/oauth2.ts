@@ -1,7 +1,10 @@
-import { shell } from "electron";
+import {getSettings} from "src/context/sharedSettingsContext";
+import {OAuthCallbackData, startServer, stopServer} from "src/sync/auth/callbackServer";
+import {PlatformHttpClient} from "src/util/platformHttpClient";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { shell } = require("electron");
 
 export interface OAuthConfig {
-  clientId: string;
   authorizationEndpoint: string;
   tokenEndpoint: string;
   scopes: string[];
@@ -13,8 +16,15 @@ export interface OAuthConfig {
   redirectUrl: string;
 }
 
+interface TokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
+  scope?: string;
+}
+
 export const GOOGLE_OAUTH_CONFIG: OAuthConfig = {
-  clientId:'developement',
   authorizationEndpoint:
     'https://accounts.google.com/o/oauth2/v2/auth',
   tokenEndpoint:
@@ -35,9 +45,9 @@ export function buildAuthorizationUrl(
   state: string,
   codeChallenge: string
 ): string {
-
+  const settings = getSettings();
   const params = new URLSearchParams({
-    client_id: GOOGLE_OAUTH_CONFIG.clientId,
+    client_id: settings.GoogleContact.clientId,
     redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUrl,
     response_type: GOOGLE_OAUTH_CONFIG.responseType,
     scope: GOOGLE_OAUTH_CONFIG.scopes.join(' '),
@@ -86,16 +96,79 @@ export function generatePkceCodeVerifier(length = 64): string {
     .join('');
 }
 
-export async function login() {
-  const codeVerifier = generatePkceCodeVerifier();
-  const codeChallenge = await generatePkceCodeChallenge(codeVerifier);
-  const state = crypto.randomUUID();
-  const authUrl = buildAuthorizationUrl(state, codeChallenge);
 
-  await shell.openExternal(authUrl);
+async function exchangeCodeForToken(
+  code: string,
+  verifier: string
+): Promise<TokenResponse> {
+  const settings = getSettings();
+  const response = await PlatformHttpClient.request({
+      url: GOOGLE_OAUTH_CONFIG.tokenEndpoint,
+      method: "POST",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: settings.GoogleContact.clientId,
+        code,
+        client_secret: settings.GoogleContact.clientSecret,
+        redirect_uri: GOOGLE_OAUTH_CONFIG.redirectUrl,
+        code_verifier: verifier
+      }).toString(),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      }
+  });
 
-  return {
-    codeVerifier,
-    state,
-  };
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(
+      `Token exchange failed (${response.status}): ${response.data}`
+    );
+  }
+
+  return JSON.parse(response.data) as TokenResponse;
+}
+
+export interface LoginResult {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+}
+
+export function login(): Promise<LoginResult> {
+  return new Promise((resolve, reject) => {
+    const run = async () => {
+      try {
+        const codeVerifier = generatePkceCodeVerifier();
+        const codeChallenge = await generatePkceCodeChallenge(codeVerifier);
+        const state = crypto.randomUUID();
+        const authUrl = buildAuthorizationUrl(state, codeChallenge);
+
+        startServer(async (data: OAuthCallbackData) => {
+          try {
+            stopServer();
+
+            if (!data.code) {
+              throw new Error("OAuth callback did not include a code.");
+            }
+
+            const tokens = await exchangeCodeForToken(data.code, codeVerifier);
+
+            resolve({
+              accessToken: tokens.access_token,
+              refreshToken: tokens.refresh_token ?? "",
+              expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
+            });
+          } catch (err) {
+            reject(err);
+          }
+        });
+
+        await shell.openExternal(authUrl);
+      } catch (err) {
+        stopServer();
+        reject(err);
+      }
+    };
+
+    void run();
+  });
 }

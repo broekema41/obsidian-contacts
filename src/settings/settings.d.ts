@@ -10,6 +10,7 @@ export interface ContactsPluginSettings {
   syncEnabled: boolean;
   groupInsights: boolean;
   CardDAV: CardDavSyncSettings;
+  GoogleContact: GoogleContactSyncSettings;
   createFieldsKeys: string[]
 }
 
@@ -19,6 +20,13 @@ interface CardDavSyncSettings {
   syncInterval: number;
   authKey: string;
   authType: AuthType;
+}
+
+interface GoogleContactSyncSettings {
+  clientId: string;
+  clientSecret: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 interface ProcessorsSettings {

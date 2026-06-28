@@ -37,6 +37,12 @@ const mockSettings: ContactsPluginSettings = {
     authKey: '',
     authType: 'apikey'
   },
+  GoogleContact: {
+    clientId: '',
+    clientSecret: '',
+    accessToken: '',
+    refreshToken: ''
+  },
   createFieldsKeys:['N.FN']
 };
 
